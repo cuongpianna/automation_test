@@ -120,6 +120,7 @@ class SeleniumDriver:
         try:
             if locator:
                 element = self.get_element(locator, locator_type)
+            element.clear()
             element.send_keys(data)
             self.log.info("Sent on element with locator: " + locator + " locatorType: " + locator_type)
         except:
@@ -205,4 +206,4 @@ class SeleniumDriver:
 
         if direction == "down":
             # Scroll Down
-            self.driver.execute_script("window.scrollBy(0, 1000);")
+            self.driver.execute_script("window.scrollBy(0, 500);")

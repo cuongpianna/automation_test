@@ -16,12 +16,13 @@ class RegisterCoursesPage(BasePage):
     ###############
 
     _search_box = "search-courses"
+    _all_courses_link = '//*[@id="navbar"]/div/div/div/ul/li[2]/a'
     _course = "/html/body/div/div/div/div[2]/div[4]"
     _all_courses = "course-listing-title"
     _enroll_button = "enroll-button-top"
-    _cc_num = "cc_field"
+    _cc_num = '//*[@id="root"]/form/span[2]/label/input[@name="cardnumber"]'
     _cc_exp = "cc-exp"
-    _cc_cvv = "cc_cvc"
+    _cc_cvv = "//*[@id='root']/form/span[2]/label/input"
     _submit_enroll = "//div[@id='new_card']//button[contains(text(),'Enroll in Course')]"
     _enroll_error_message = "//div[@id='new_card']//div[contains(text()," \
                             "'The card number is not a valid credit card number.')]"
@@ -29,6 +30,9 @@ class RegisterCoursesPage(BasePage):
     ############################
     ### Element Interactions ###
     ############################
+
+    def click_all_courses_link(self):
+        self.element_click(self._all_courses_link, locator_type='xpath')
 
     def enter_course_name(self, name):
         self.send_keys(name, locator=self._search_box)
@@ -40,13 +44,13 @@ class RegisterCoursesPage(BasePage):
         self.element_click(locator=self._enroll_button)
 
     def enter_card_num(self, num):
-        self.send_keys(num, locator=self._cc_num)
+        self.send_keys(num, locator=self._cc_num, locator_type='xpath')
 
     def enter_card_exp(self, exp):
         self.send_keys(exp, locator=self._cc_exp)
 
     def enter_card_cvv(self, cvv):
-        self.send_keys(cvv, locator=self._cc_cvv)
+        self.send_keys(cvv, locator=self._cc_cvv, locator_type='xpath')
 
     def click_enroll_submit_button(self):
         self.send_keys(self._submit_enroll, locator="xpath")

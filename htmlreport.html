@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var collapsed = get_query_parameter('collapsed') || 'Passed';
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    toggle_sort_states(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+    var multiplier = reversed ? -1 : 1;
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+        return multiplier * (key_a >= key_b ? 1 : -1);
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>htmlreport.html</h1>
+    <p>Report generated on 30-Nov-2018 at 09:53:12 by<a href="https://pypi.python.org/pypi/pytest-html"> pytest-html</a> v1.19.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Java\bin</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{&apos;pytest&apos;: &apos;4.0.1&apos;, &apos;py&apos;: &apos;1.7.0&apos;, &apos;pluggy&apos;: &apos;0.8.0&apos;}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.17134-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{&apos;metadata&apos;: &apos;1.7.0&apos;, &apos;html&apos;: &apos;1.19.0&apos;}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.6.6</td></tr></table>
+    <h2>Summary</h2>
+    <p>3 tests ran in 35.14 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">2 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/homes/login_tests.py::LoginTests::test_valid_login_1___test_gmail_com____cuong__</td>
+          <td class="col-duration">9.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;tests.homes.login_tests.LoginTests testMethod=test_valid_login_1___test_gmail_com____cuong__&gt;, email = &#x27;test@gmail.com&#x27;, password = &#x27;cuong&#x27;<br/><br/>    @pytest.mark.run(order=2)<br/>    @data(*get_csv_data(&#x27;C:\\Users\\admin\\Desktop\\lam\\autotest\\letskodeit\\testdata.csv&#x27;))<br/>    @unpack<br/>    def test_valid_login(self, email, password):<br/>        self.login_page.login(email, password)<br/>    <br/>        result1 = self.login_page.verify_login_title()<br/>        self.ts.mark(result1, &#x27;Title is incorrect&#x27;)<br/>    <br/>        result2 = self.login_page.verify_login_successful()<br/>&gt;       self.ts.mark_final(&#x27;test_validLogin&#x27;, result2, &#x27;Login was not successful&#x27;)<br/><br/>tests\homes\login_tests.py:28: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;utilities.teststatus.TestStatus object at 0x0000016A6DBE7B70&gt;, test_name = &#x27;test_validLogin&#x27;, result = False, result_message = &#x27;Login was not successful&#x27;<br/><br/>    def mark_final(self, test_name, result, result_message):<br/>        &quot;&quot;&quot;<br/>        Mark the final result of the verification point in a test case<br/>        This needs to be called at least once in a test case<br/>        This should be final test status of the test case<br/>        &quot;&quot;&quot;<br/>        self.set_result(result, result_message)<br/>    <br/>        if &quot;FAIL&quot; in self.resultList:<br/>            self.log.error(test_name + &quot; ### TEST FAILED&quot;)<br/>            self.resultList.clear()<br/>&gt;           assert True == False<br/><span class="error">E           AssertionError</span><br/><br/>utilities\teststatus.py:62: AssertionError<br/>------------------------------ Captured log call -------------------------------<br/>selenium_driver.py          63 INFO     Element not found
+selenium_driver.py         116 INFO     Cannot click on the element with locator: Login locatorType: link
+selenium_driver.py          61 INFO     Element Found with locator: user_emailand locator_type: id
+selenium_driver.py         125 INFO     Sent on element with locator: user_email locatorType: id
+selenium_driver.py          61 INFO     Element Found with locator: user_passwordand locator_type: id
+selenium_driver.py         125 INFO     Sent on element with locator: user_password locatorType: id
+selenium_driver.py          61 INFO     Element Found with locator: commitand locator_type: name
+selenium_driver.py         114 INFO     Clicked on element with locator: commit locatorType: name
+util.py                     83 INFO     Actual Text From Application Web UI --&gt; :: Let&#x27;s Kode It
+util.py                     84 INFO     Expected Text From Application Web UI --&gt; :: Google
+util.py                     89 INFO     ### VERIFICATION DOES NOT CONTAINS !!!
+teststatus.py               34 ERROR    ### VERIFICATION FAILED :: + Title is incorrect
+selenium_driver.py          32 INFO     Screenshot save to directory: C:\Users\admin\Desktop\lam\autotest\letskodeit\base\..\screenshots\Title is incorrect.1543546378350.png
+selenium_driver.py          63 INFO     Element not found
+selenium_driver.py         138 INFO     Element not found
+teststatus.py               34 ERROR    ### VERIFICATION FAILED :: + Login was not successful
+selenium_driver.py          32 INFO     Screenshot save to directory: C:\Users\admin\Desktop\lam\autotest\letskodeit\base\..\screenshots\Login was not successful.1543546381636.png
+teststatus.py               60 ERROR    test_validLogin ### TEST FAILED</div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/homes/login_tests.py::LoginTests::test_valid_login_2___test_gmail_com____abcabc__</td>
+          <td class="col-duration">8.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;tests.homes.login_tests.LoginTests testMethod=test_valid_login_2___test_gmail_com____abcabc__&gt;, email = &#x27;test@gmail.com&#x27;, password = &#x27;abcabc&#x27;<br/><br/>    @pytest.mark.run(order=2)<br/>    @data(*get_csv_data(&#x27;C:\\Users\\admin\\Desktop\\lam\\autotest\\letskodeit\\testdata.csv&#x27;))<br/>    @unpack<br/>    def test_valid_login(self, email, password):<br/>        self.login_page.login(email, password)<br/>    <br/>        result1 = self.login_page.verify_login_title()<br/>        self.ts.mark(result1, &#x27;Title is incorrect&#x27;)<br/>    <br/>        result2 = self.login_page.verify_login_successful()<br/>&gt;       self.ts.mark_final(&#x27;test_validLogin&#x27;, result2, &#x27;Login was not successful&#x27;)<br/><br/>tests\homes\login_tests.py:28: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;utilities.teststatus.TestStatus object at 0x0000016A6DC6BEF0&gt;, test_name = &#x27;test_validLogin&#x27;, result = True, result_message = &#x27;Login was not successful&#x27;<br/><br/>    def mark_final(self, test_name, result, result_message):<br/>        &quot;&quot;&quot;<br/>        Mark the final result of the verification point in a test case<br/>        This needs to be called at least once in a test case<br/>        This should be final test status of the test case<br/>        &quot;&quot;&quot;<br/>        self.set_result(result, result_message)<br/>    <br/>        if &quot;FAIL&quot; in self.resultList:<br/>            self.log.error(test_name + &quot; ### TEST FAILED&quot;)<br/>            self.resultList.clear()<br/>&gt;           assert True == False<br/><span class="error">E           AssertionError</span><br/><br/>utilities\teststatus.py:62: AssertionError<br/>------------------------------ Captured log call -------------------------------<br/>selenium_driver.py          63 INFO     Element not found
+selenium_driver.py         116 INFO     Cannot click on the element with locator: Login locatorType: link
+selenium_driver.py          61 INFO     Element Found with locator: user_emailand locator_type: id
+selenium_driver.py         125 INFO     Sent on element with locator: user_email locatorType: id
+selenium_driver.py          61 INFO     Element Found with locator: user_passwordand locator_type: id
+selenium_driver.py         125 INFO     Sent on element with locator: user_password locatorType: id
+selenium_driver.py          61 INFO     Element Found with locator: commitand locator_type: name
+selenium_driver.py         114 INFO     Clicked on element with locator: commit locatorType: name
+util.py                     83 INFO     Actual Text From Application Web UI --&gt; :: Let&#x27;s Kode It
+util.py                     84 INFO     Expected Text From Application Web UI --&gt; :: Google
+util.py                     89 INFO     ### VERIFICATION DOES NOT CONTAINS !!!
+teststatus.py               34 ERROR    ### VERIFICATION FAILED :: + Title is incorrect
+selenium_driver.py          32 INFO     Screenshot save to directory: C:\Users\admin\Desktop\lam\autotest\letskodeit\base\..\screenshots\Title is incorrect.1543546389641.png
+selenium_driver.py          61 INFO     Element Found with locator: //*[@id=&quot;navbar&quot;]/div/div/div/ul/li[4]/a/spanand locator_type: xpath
+selenium_driver.py         135 INFO     Element Found
+teststatus.py               31 INFO     ### VERIFICATION SUCCESSFUL :: + Login was not successful
+teststatus.py               60 ERROR    test_validLogin ### TEST FAILED</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/homes/login_tests.py::LoginTests::test_invalid_login</td>
+          <td class="col-duration">7.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>selenium_driver.py          61 INFO     Element Found with locator: Loginand locator_type: link
+selenium_driver.py         114 INFO     Clicked on element with locator: Login locatorType: link
+selenium_driver.py          61 INFO     Element Found with locator: user_emailand locator_type: id
+selenium_driver.py         125 INFO     Sent on element with locator: user_email locatorType: id
+selenium_driver.py          61 INFO     Element Found with locator: user_passwordand locator_type: id
+selenium_driver.py         125 INFO     Sent on element with locator: user_password locatorType: id
+selenium_driver.py          61 INFO     Element Found with locator: commitand locator_type: name
+selenium_driver.py         114 INFO     Clicked on element with locator: commit locatorType: name
+selenium_driver.py          61 INFO     Element Found with locator: /html/body/div/div/div/div/div/div/div[1]/div/divand locator_type: xpath
+selenium_driver.py         135 INFO     Element Found</div></td></tr></tbody></table></body></html>
